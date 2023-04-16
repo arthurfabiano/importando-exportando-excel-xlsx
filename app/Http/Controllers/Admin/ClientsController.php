@@ -2,11 +2,15 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Exports\AllClientsExport;
+use App\Exports\SearchClientsExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests;
 
+use App\Imports\AllClientsImport;
 use App\Models\Client;
 use Illuminate\Http\Request;
+use Maatwebsite\Excel\Facades\Excel;
 
 class ClientsController extends Controller
 {
@@ -50,9 +54,9 @@ class ClientsController extends Controller
      */
     public function store(Request $request)
     {
-        
+
         $requestData = $request->all();
-        
+
         Client::create($requestData);
 
         return redirect('admin/clients')->with('flash_message', 'Client added!');
@@ -96,9 +100,9 @@ class ClientsController extends Controller
      */
     public function update(Request $request, $id)
     {
-        
+
         $requestData = $request->all();
-        
+
         $client = Client::findOrFail($id);
         $client->update($requestData);
 
@@ -117,5 +121,36 @@ class ClientsController extends Controller
         Client::destroy($id);
 
         return redirect('admin/clients')->with('flash_message', 'Client deleted!');
+    }
+
+    public function allClientsExcel()
+    {
+        return Excel::download(new AllClientsExport, 'Clients.xlsx');
+    }
+
+    /**
+     * @param Request $request
+     * @return \Symfony\Component\HttpFoundation\BinaryFileResponse
+     */
+    public function searchClientsExcel(Request $request)
+    {
+        $keyword = $request->get('search');
+
+        if (!empty($keyword)) {
+            $clients = Client::where('nome', 'LIKE', "%$keyword%")
+                ->orWhere('email', 'LIKE', "%$keyword%")
+                ->latest()->get();
+        } else {
+            $clients = Client::latest()->get();
+        }
+
+        return Excel::download(new SearchClientsExport($clients), 'Clients_Filter.xlsx');
+    }
+
+    public function importClientsExcel(Request $request)
+    {
+        Excel::import(new AllClientsImport(), $request->file('planilha'));
+
+        return redirect('admin/clients')->with('flash_message', 'Clientes Importados com sucesso!');
     }
 }
